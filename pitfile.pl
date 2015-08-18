@@ -567,9 +567,30 @@ sub quarantine {
 	my $sha1 = sha1_hex($path);
 	CORE::rename($xlated, "$quarantine_area/$sha1");
 	warning("$path quarantined as $quarantine_area/$sha1");
+
+	#
+	# load some kilobytes of malicious file to add some
+	# context to the email
+	#
+	my $content = "";
+	my $size = 0;
+	if (CORE::open(IN, $xlated)) {
+		while ($size < $config{'file_excerpt_size'}) {
+			my $buffer = "";
+			my $res = CORE::read(IN, $buffer, 1024);
+			last unless defined $res;
+			last if $res == 0;
+			$content += $buffer;
+			$size += $res;
+		}
+		close (IN);
+	}
+
 	mail(
 		"Quarantine advisor", 
-		"$path has been quarantined as $quarantine_area/$sha1"
+		"$path has been quarantined as $quarantine_area/$sha1\n" .
+		"Here follows an excerpt of $size byted from the file:\n\n" .
+		"$content\n"
 	);
 }
 
@@ -733,6 +754,11 @@ our %config = (
 	# The email address to be contacted
 	#
     mail_recipient => 'nobody@example.com',
+    
+    #
+    # The max size of the content excerpt sent by email, in bytes
+    #
+    file_excerpt_size => 10 * 1024,
 );
 
 #
