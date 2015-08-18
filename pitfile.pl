@@ -142,10 +142,10 @@ sub mknod {
 	# Regular file
 	#
 	if (S_ISREG($mode)) {
-		open(FILE, '>', $xlated) || return -$!;
+		CORE::open(FILE, '>', $xlated) || return -$!;
 		print FILE '';
-		close(FILE);
-		chmod S_IMODE($mode), $xlated;
+		CORE::close(FILE);
+		CORE::chmod S_IMODE($mode), $xlated;
 		debug("OP: mknod($path, $mode, $dev) -> 0") if $loglevel >= 4;
 		return 0;
 	}
@@ -583,7 +583,7 @@ sub quarantine {
 			$content += $buffer;
 			$size += $res;
 		}
-		close (IN);
+		CORE::close(IN);
 	}
 
 	mail(
@@ -657,7 +657,7 @@ sub analyze {
 	if (CORE::open(IN, "$xlated")) {
 		my $content = "";
 		while (<IN>) { $content .= $_; }
-		close(IN);
+		CORE::close(IN);
 
 		#
 		# First look for content whitelisting
