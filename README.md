@@ -50,7 +50,7 @@ is provided when the repository is mounted for the first time:
        #
        # The email address to be contacted
        #
-       mail_recipient => 'tx0@strumentiresistenti.org',
+       mail_recipient => 'admin@example.com',
     );
      
     #
