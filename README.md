@@ -35,7 +35,7 @@ mount pitfile like this:
 
 then configure your server (apache2, proftpd, ...) to point `/srv/mount_point`. Pitfile
 will deliver its filtering capabilities out of the box. To customize the checks
-executed on uploaded files, edit `/srv/original_content/.pitfilerc`; this template 
+executed on uploaded files, edit `/srv/original_content/.pitfilerc`; a template 
 is provided when the repository is mounted for the first time:
 
     #
