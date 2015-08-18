@@ -1,20 +1,21 @@
 # Pitfile
 
 Pitfile is a *filesystem wrapper* written in Perl with FUSE. It's intended to add a
-layer on top of a web server filesystem to trap illegal or suspicious activities,
+layer between a web server and its filesystem to trap illegal or suspicious activities,
 like file uploads, and put new files into a quarantine area, if found positive to
 some checks.
 
 When malicious contents are uploaded on a server, the damage is almost done. The
-attacker can easily invoke the uploded file to perform undesirable actions. Using
-restrictive permissions on disk or using restriction frameworks (like Suhosin for
-PHP) can prevent even legit use cases. Pitfile tries to solve this drawbacks without
-loosing to much server security.
+attacker can later easily invoke the uploded file to perform undesirable actions.
+Using restrictive permissions on disk or using restriction frameworks (like Suhosin
+for PHP) can prevent even legit use cases. Pitfile tries to solve this drawbacks
+without loosing too much server security.
 
-The idea behind pitfile is very simple: place some checking logic in the filesystem.
-After a file is created, pitfile performes some customizable checks on it. If its
+The idea behind pitfile is very simple: place some checking logic inside the filesystem.
+After a file is created, pitfile performs some customizable checks on it. If its
 name is suspect or its content reveal malicious intentions, the file is quarantined,
-an entry is reported in the logs and the administrator is warned by email.
+an entry is reported in the logs and the administrator is warned by email. The uploader
+can't any longer invoke the file or use its contents.
 
 Pitfile is still an experimental project and is not indended for heavily loaded
 public servers. Pitfile is written in Perl and requires a small number of external
