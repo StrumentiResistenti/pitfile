@@ -4,7 +4,7 @@ use strict;
 use warnings;
 
 use Fuse;
-use POSIX qw(EIO ENOTDIR ENOENT ENOSYS EEXIST EPERM O_RDONLY O_WRONLY O_RDWR O_APPEND O_CREAT setsid);
+use POSIX qw(EIO EROFS ENOTDIR ENOENT ENOSYS EEXIST EPERM O_RDONLY O_WRONLY O_RDWR O_APPEND O_CREAT setsid);
 use Fcntl qw(S_ISBLK S_ISCHR S_ISFIFO SEEK_SET S_ISREG S_ISFIFO S_IMODE S_ISCHR S_ISBLK S_ISSOCK S_IWUSR S_IWGRP S_IWOTH S_ISDIR S_ISLNK);
 use Unix::Mknod;
 use Logger::Syslog;
@@ -99,6 +99,8 @@ sub xlate {
 #
 sub getattr {
 	my ($path) = @_;
+	return -1 * ENOENT if $path =~ m#/.pitfilerc$#;
+	
 	my @res = CORE::lstat(xlate($path));
 	if (0 == $#res) {
 		debug("OP: getattr($path) -> FAILED!") if $loglevel >= 4;
@@ -131,6 +133,12 @@ sub readlink {
 #
 sub mknod {
 	my ($path, $mode, $dev) = @_;
+	
+	#
+	# do not allow the creation of .pitfilerc
+	#
+	return -1 * EROFS if $path =~ m#/.pitfilerc$#;
+	
 	my $xlated = xlate($path);
 
 	#
@@ -180,7 +188,7 @@ sub mknod {
 	# S_ISSOCK should be handled too; however, for our
 	# purposes it does not really matter.
 	#
-	my $res = -&ENOSYS;
+	my $res = -1 * ENOSYS;
 	debug("OP: mknod($path, $mode, $dev) -> $res") if $loglevel >= 4;
 	return $res;
 }
@@ -200,6 +208,12 @@ sub mkdir {
 #
 sub unlink {
 	my ($path) = @_;
+	
+	#
+	# Can't unlink .pitfilerc
+	#
+	return -1 * ENOENT if $path =~ m#/.pitfilerc$#;
+	
 	my $res = CORE::unlink(xlate($path));
 	debug("OP: unlink($path) -> $res") if $loglevel >= 4;
 	return $res ? 0 : -$!;
@@ -240,6 +254,13 @@ sub link {
 #
 sub rename {
 	my ($from, $to) = @_;
+	
+	#
+	# Can't rename from or to .pitfilerc
+	#
+	return -1 * EROFS if $from =~ m#/.pitfilerc$#;
+	return -1 * EROFS if $to   =~ m#/.pitfilerc$#;
+	
 	my $res = CORE::rename(xlate($from), xlate($to));
 	debug("OP: rename($from, $to) -> $res") if $loglevel >= 4;
 	return $res ? 0 : -$!;
@@ -250,6 +271,12 @@ sub rename {
 #
 sub chmod {
 	my ($path, $mode) = @_;
+	
+	#
+	# Protect .pitfilerc
+	#
+	return -1 * EROFS if $path =~ m#/.pitfilerc$#;
+	
 	my $res = CORE::chmod(xlate($path), $mode);
 	warning("OP: chmod($path, $mode) -> $res") if $loglevel >= 2;
 	return $res ? 0 : -$!;
@@ -260,6 +287,12 @@ sub chmod {
 #
 sub chown {
 	my ($path, $uid, $gid) = @_;
+
+	#
+	# Protect .pitfilerc
+	#
+	return -1 * EROFS if $path =~ m#/.pitfilerc$#;
+	
 	my $res = CORE::chown(xlate($path), $uid, $gid);
 	warning("OP: chown($path, $uid, $gid) -> $res") if $loglevel >= 2;
 	return $res ? 0 : -$!;
@@ -270,6 +303,11 @@ sub chown {
 #
 sub truncate {
 	my ($path, $offset) = @_;
+	
+	#
+	# Protect .pitfilerc
+	#
+	return -1 * EROFS if $path =~ m#/.pitfilerc$#;
 
 	my $res = CORE::truncate(xlate($path), $offset);
 	$res = defined $res ? 0 : -1 * EIO;
@@ -282,6 +320,12 @@ sub truncate {
 #
 sub utime {
 	my ($path, $actime, $modtime) = @_;
+
+	#
+	# Protect .pitfilerc
+	#
+	return -1 * EROFS if $path =~ m#/.pitfilerc$#;
+
 	my $res = CORE::utime($actime, $modtime, xlate($path));
 	debug("OP: utime($path, $actime, $modtime) -> $res") if $loglevel >= 4;
 	return $res ? 0 : -$!;
@@ -292,6 +336,12 @@ sub utime {
 #
 sub open {
 	my ($path, $flags, $fileinfo) = @_;
+	
+	#
+	# Protect .pitfilerc
+	#
+	return -1 * ENOENT if $path =~ m#/.pitfilerc$#;
+	
 	my $filehandle = POSIX::open(xlate($path), $flags);
 
 	if (defined $filehandle and $filehandle) {
@@ -309,6 +359,12 @@ sub open {
 #
 sub create {
 	my ($path, $flags, $fileinfo) = @_;
+
+	#
+	# Protect .pitfilerc
+	#
+	return -1 * EROFS if $path =~ m#/.pitfilerc$#;
+	
 	my $filehandle = POSIX::creat(xlate($path), $flags);
 
 	if (defined $filehandle and $filehandle) {
@@ -326,6 +382,11 @@ sub create {
 #
 sub read {
 	my ($path, $size, $offset, $filehandle) = @_;
+	
+	#
+	# Protect .pitfilerc
+	#
+	return -1 * EIO if $path =~ m#/.pitfilerc$#;
 
 	my $buffer;
 
@@ -362,6 +423,11 @@ sub read {
 #
 sub write {
 	my ($path, $buffer, $offset, $filehandle) = @_;
+
+	#
+	# Protect .pitfilerc
+	#
+	return -1 * EIO if $path =~ m#/.pitfilerc$#;
 
 	unless (defined $filehandle and $filehandle) {
 		$filehandle = POSIX::open(xlate($path), &POSIX::O_WRONLY);
@@ -464,6 +530,7 @@ sub readdir {
 	}
 
 	my @entries = POSIX::readdir($dirhandle);
+	@entries = grep(!/^.pitfilerc$/, @entries); # remove .pitfilerc from listed files
 	push @entries, 0;
 
 	debug("OP: readdir($path, $offset, <dirhandle>) -> 0 (" . $#entries . " entries)") if $loglevel >= 4;
@@ -556,6 +623,41 @@ sub mail {
 }
 
 #
+# Load file content limited to a requested size
+# If size is 0 or undef, the entire file is loaded
+#
+# @param $path the file path
+# @param $length the file portion to load in bytes
+#
+sub load_file_content {
+	my ($path, $length) = @_;
+	
+	my $content = "";
+	my $size = 0;
+	
+	unless (defined $length and $length) {
+		my @stat = stat($path);
+        $length = $stat[7];	
+	}
+	
+	if (CORE::open(IN, $path)) {
+		while ($size < $length) {
+			my $buffer;
+			my $res = CORE::read(IN, $buffer, 1024);
+			
+			last unless defined $res;
+			last if 0 == $res;
+			
+			$content += $buffer;
+			$size += $res;
+		}
+		CORE::close(IN);
+	}
+	
+	return ($content);
+}
+
+#
 # Move a file into quarantine area
 #
 # @param $path the relative file path inside the repository
@@ -564,6 +666,9 @@ sub mail {
 sub quarantine {
 	my ($path, $xlated) = @_;
 
+	#
+	# place the file in the quarantine area
+	#
 	my $sha1 = sha1_hex($path);
 	CORE::rename($xlated, "$quarantine_area/$sha1");
 	warning("$path quarantined as $quarantine_area/$sha1");
@@ -572,20 +677,12 @@ sub quarantine {
 	# load some kilobytes of malicious file to add some
 	# context to the email
 	#
-	my $content = "";
-	my $size = 0;
-	if (CORE::open(IN, $xlated)) {
-		while ($size < $config{'file_excerpt_size'}) {
-			my $buffer = "";
-			my $res = CORE::read(IN, $buffer, 1024);
-			last unless defined $res;
-			last if $res == 0;
-			$content += $buffer;
-			$size += $res;
-		}
-		CORE::close(IN);
-	}
+	my $content = load_file_content($xlated, $config{'file_excerpt_size'});
+	my $size = length($content);
 
+	#
+	# Send the email
+	#
 	mail(
 		"Quarantine advisor", 
 		"$path has been quarantined as $quarantine_area/$sha1\n" .
@@ -654,29 +751,26 @@ sub analyze {
 	# If path blacklisting has been passed, pitfile reads file content
 	# and scans for patterns
 	#
-	if (CORE::open(IN, "$xlated")) {
-		my $content = "";
-		while (<IN>) { $content .= $_; }
-		CORE::close(IN);
+	my $content = load_file_content($xlated, undef);
+	return unless defined $content and $content;
+	
+	#
+	# First look for content whitelisting
+	#
+	my $content_whitelist_match = apply_filters($path, $xlated, $content, $filters{'content'}->{'whitelist'});
+	if (defined $content_whitelist_match and $content_whitelist_match) {
+		info("$path content is whitelisted by /$content_whitelist_match/");
+		return;
+	}
 
-		#
-		# First look for content whitelisting
-		#
-		my $content_whitelist_match = apply_filters($path, $xlated, $content, $filters{'content'}->{'whitelist'});
-		if (defined $content_whitelist_match and $content_whitelist_match) {
-			info("$path content is whitelisted by /$content_whitelist_match/");
-			return;
-		}
-
-		#
-		# Then look for content blacklisting
-		#
-		my $content_blacklist_match = apply_filters($path, $xlated, $content, $filters{'content'}->{'blacklist'});
-		if (defined $content_blacklist_match and $content_blacklist_match) {
-			info("$path content is blacklisted by /$content_blacklist_match/");
-			quarantine($path, $xlated);
-			return;
-		}
+	#
+	# Then look for content blacklisting
+	#
+	my $content_blacklist_match = apply_filters($path, $xlated, $content, $filters{'content'}->{'blacklist'});
+	if (defined $content_blacklist_match and $content_blacklist_match) {
+		info("$path content is blacklisted by /$content_blacklist_match/");
+		quarantine($path, $xlated);
+		return;
 	}
 }
 
